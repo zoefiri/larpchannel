@@ -17,5 +17,3 @@ def get_rand_card():
     seed(time.time())
     rand_card = choice(file_list)
     rand_card.GetContentFile('card.png')
-
-

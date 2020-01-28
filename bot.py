@@ -1,88 +1,107 @@
 import discord
 import commands
-import os
+import signal
 import time
-import glob
-import requests
-from random import seed, randint
-from quotes import retrieve_quotes, find_quote, add_quote
-from driv import get_rand_card
+import json
+import sys
+import os
+from discord.ext.tasks import loop
 
-token = 'NjY2Mjg5ODE1ODE3Mjg5NzM4.XieQsw.kybrZ44ct9aXvJuI1Tb-jFQIQHc'
+token = 'NjY2Mjg5ODE1ODE3Mjg5NzM4.XiezQg.9xgNHATFrGJWe-W8DtUWQSFkG_E'
 client = discord.Client()
-seed(time.time())
-nums = []
-quote_queue = {}
-limited = {}
-limit = 60
-unltd = False
-responses = retrieve_quotes()
-ratelimit = 30
+
+
+cmd_globals = {
+    'client': client,
+    'slowed': json.load(open('ratelimit.json', 'r')),
+    'responses' : json.load(open('responses.json', 'r')),
+    'quote_queue' : {},
+    'limited' : {},
+    'role_timed': {},
+    'help_info': {},
+    'nums' : [],
+    'limit' : 60,
+    'ratelimit' : 30,
+    'unltd' : False,
+    'disabled': False
+}
+if os.path.exists('role_schedule.json'): cmd_globals['role_timed'] = json.load(open('role_schedule.json', 'r'))
+
+@loop(seconds=1.0)
+async def role_remover():
+    now = time.time()
+    removed = []
+    for temprole_key in cmd_globals['role_timed']:
+        temprole = cmd_globals['role_timed'][temprole_key]
+        if now-temprole['assigned'] > temprole['duration']:
+            for guild in client.guilds:
+                if guild.id == temprole['guild']:
+                    member = guild.get_member(temprole['member'])
+                    role_guild = guild
+            for role in role_guild.roles:
+                if role.name.lower() == temprole['role'].lower():
+                    timed_role = role
+            await member.remove_roles(timed_role)
+            removed.append(temprole_key)
+
+    for temprole_key in removed:
+        del cmd_globals['role_timed'][temprole_key]
+        json.dump(cmd_globals['role_timed'], open('role_schedule.json', 'w'))
+
 
 @client.event
 async def on_ready():
+    role_remover.start()
+
+    conv_buffer = []
+    for user in cmd_globals['slowed']:
+        conv_buffer.append(user)
+    for user in conv_buffer:
+        cmd_globals['slowed'][int(user)] = cmd_globals['slowed'][user]
+        del cmd_globals['slowed'][user]
+
     print(f'{client.user} has connected to Discord!')
     print(f'we\'re on servers:')
     for guild in client.guilds:
         print(f'\t{guild}')
 
+cmd_list = vars(commands.cmds)
+cmd_names = list(filter(lambda x: x[0] != '_' , cmd_list.keys()))
+for command in cmd_names:
+    if "command_text" in vars(cmd_list[command]):
+        command_text = cmd_list[command].command_text
+        if "help_text" in vars(cmd_list[command]):
+            help_text = cmd_list[command].help_text
+            cmd_globals['help_info'][command_text] = help_text
+        else:
+            cmd_globals['help_info'][command_text] = ''
+
+@client.event
+async def on_member_join(member):
+    for timed_role in cmd_globals['role_timed']:
+        timed_role_val = cmd_globals['role_timed'][timed_role]
+        if timed_role_val['member'] == member.id and time.time()-timed_role_val['assigned'] < timed_role_val['duration']:
+            for role in member.guild.roles:
+                if role.name == timed_role_val['role']:
+                    await member.add_roles(role)
+
+
 @client.event
 async def on_message(message):
-    global responses
-    global limited
-    global nums
-    global unltd
-    global limit
-    if message.author == client.user:
-        return
-    elif message.content == 'yugioh!' or message.content == 'Yugioh!':
-        get_rand_card()
-        await message.channel.send(file=discord.File('card.png'))
-    elif message.content[0:3].lower() == 'x.t':
-        cards = glob.glob('cards/*')
-        if len(nums) == 0:
-            nums = requests.get("https://www.random.org/integers/", {'num':10, 'min':0, 'max':(len(cards)-1), 'format':'plain', 'rnd':'new', 'col':1, 'base':10}).content.split()
-        await message.channel.send(file=discord.File(cards[int(nums[0])]))
-        del nums[0]
-    elif message.content[0:3] == 'qqb':
-        bbq=['No.', 'Mote it be.', 'Never.', 'Yes.', 'I will it.', 'Absolutely not.', 'Yes, of course.', 'No', 'That will never happen.']
-        await message.channel.send(bbq[randint(0,len(bbq)-1)])
-    elif message.content[0:7] == 'x!quote':
-        roles = list()
-        for role in message.author.roles:
-            roles.append(role.name)
-        if "Quoter" in roles:
-            if message.content[8:] == "":
-                await message.channel.send('please provide an argument as a trigger ("x!quote bruh" and then type "moment")')
-            else:
-                await message.channel.send(f'next message will be read as quote for \"{message.content[8:]}\", type CANCEL to cancel this.')
-                quote_queue[message.author.id] = message.content[8:]
-    elif len(quote_queue) != 0:
-        for user in quote_queue:
-            if message.author.id == user:
-                if message.content != 'CANCEL' and len(message.content) < 4:
-                    await message.channel.send('only triggers over 4 characters are accepted!')
-                elif message.content != 'CANCEL':
-                    add_quote(quote_queue[message.author.id], message.content)
-                    responses = retrieve_quotes()
-                del quote_queue[message.author.id]
-            break
-    elif message.content.split()[0] == 'x!ltd' and message.author.id == 132620792818171905:
-        if unltd:
-            unltd = False
-            await message.channel.send('*slow down*')
-        else:
-            unltd = True
-            await message.channel.send('***BRAKES OFF*** <:based:620490020536451072>')
-    elif message.content.split()[0] == 'x!ltds' and message.author.id == 132620792818171905:
-        limit = int(message.content.split()[1])
-        await message.channel.send(f'ratelimit set to ***{limit}*** seconds.')
-    else:
-        response = find_quote(responses, message.content)
-        if response and ((message.author.id not in limited) or (message.author.id in limited and time.time()-limited[message.author.id] > limit) or unltd):
-            limited[message.author.id] = time.time()
-            await message.channel.send(response)
-        elif response:
-            await message.channel.send(f'shut, responses are ratelimited to ***{limit}*** seconds', delete_after=2)
+    cmd_list = vars(commands.cmds)
+    cmd_names = list(filter(lambda x: x[0] != '_' , cmd_list.keys()))
+    for command in cmd_names:
+        if not cmd_globals['disabled'] and not message.author.bot and message.content != '' and "command_text" in vars(cmd_list[command]) and cmd_list[command].command_text == message.content.split()[0].lower():
+            await cmd_list[command].action(message, cmd_globals)
+            print(f'ACTIVATED {command} text activated')
+            return
+        elif not cmd_globals['disabled'] and not message.author.bot and "command_text" not in vars(cmd_list[command]) and "custom_logic" in vars(cmd_list[command]):
+            await cmd_list[command].action(message, cmd_globals)
+    if message.author.id == 132620792818171905 and message.content == '+disable':
+        if cmd_globals['disabled']: cmd_globals['disabled'] = False
+        else: cmd_globals['disabled'] = True
+        print('disabling', cmd_globals['disabled'])
+    return
+
 
 client.run(token)

@@ -1,3 +1,5 @@
+import json
+
 def retrieve_quotes():
     file = open("responses.txt", "r")
     escaped = False
@@ -13,18 +15,22 @@ def retrieve_quotes():
         for char in line:
             if char == '\\' and escaped == False:
                 escaped = True
-                print("escaped!")
+            elif char == '\\':
+                if key_reading:
+                    key_buffer += char
+                else:
+                    val_buffer += char
 
             else:
-                if escaped == False and char == '(':
+                if not escaped and char == ':' and key_reading:
                     key_reading = False
-                elif escaped == False and char == ')':
+                elif not escaped and char == ':' and not key_reading:
                     key_reading = True
                     responses[key_buffer] = val_buffer
                     key_buffer = val_buffer = ""
-                elif key_reading == True:
+                elif key_reading:
                     key_buffer += char
-                elif key_reading == False:
+                elif not key_reading:
                     val_buffer += char
 
                 escaped = False
@@ -35,23 +41,24 @@ def retrieve_quotes():
 def find_quote(responses, msg):
     response = ""
     try:
+        print('attempt')
         response = responses[msg.lower()]
     except KeyError:
         pass
-    print(responses)
     return response
 
-def add_quote(quote, response):
-    quote = quote.replace("(", "\(")
-    quote = quote.replace(")", "\)")
-    response = response.replace("(", "\(")
-    response = response.replace(")", "\)")
+def del_quote(responses, quote):
+    try:
+        del responses[quote]
+    except KeyError:
+        return 1
 
-    file = open("responses.txt", "rb+")
-    file.seek(-1,2)
-    if file.read(1) == '\n':
-        file.seek(-1,2)
-    else:
-        file.seek(0,2)
-    file.write(str.encode(quote.lower() + '(' + response + ')'))
+    file = open("responses.txt", "w")
+    for quote_l in responses:
+        file.write(quote_l.replace(":", "\\:"))
+        file.write(':')
+        file.write(responses[quote_l].replace(":", "\\:"))
+        file.write(':')
+
     file.close()
+    return 0
