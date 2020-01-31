@@ -180,16 +180,15 @@ class cmds:
         custom_logic = 1
         async def action(message, cmd_globals):
             if message.author.id in cmd_globals['slowed']:
-                print(cmd_globals['slowed'])
                 limited_user = cmd_globals['slowed'][message.author.id]
                 if (time.time()-limited_user['sent']) < limited_user['rate']:
                     await message.delete()
                     limited_user['violated'] += 1
                     limited_user['violated_time'] = time.time()
-                    if limited_user['violated'] >= 10 or (limited_user['violated'] > 3 and time.time()-limited_user['violated_time'] <= 1):
-                        await message.author.add_roles(message.guild.get_role(670752478677172235))
-                        cmd_globals['role_timed'][str(message.author.id) + "electric fence"] = {'member': message.author.id, 'role': "electric fence",
-                                                                                       'assigned': time.time(), 'duration': 40,
+                    if limited_user['violated'] >= 10 or (limited_user['violated'] > 3 and time.time()-limited_user['violated_time'] <= 2):
+                        await message.author.add_roles(message.guild.get_role(666168181798469672))
+                        cmd_globals['role_timed'][str(message.author.id) + "muted"] = {'member': message.author.id, 'role': "muted",
+                                                                                       'assigned': time.time(), 'duration': 30,
                                                                                        'guild': message.guild.id}
                         json.dump(cmd_globals['role_timed'], open('role_schedule.json', 'w'))
                         limited_user['violated'] = 0
@@ -432,5 +431,6 @@ class cmds:
 
             else:
                 await message.channel.send(err_msg)
+
 
 
