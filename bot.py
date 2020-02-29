@@ -12,106 +12,56 @@ from discord.ext.tasks import loop
 token = 'NjY2Mjg5ODE1ODE3Mjg5NzM4.XjRKug.hLMDddmi9mDv4wzmmE55Em4hFaw'
 client = discord.Client()
 bot = commands.Bot(command_prefix='+')
-bot.redis = redis.Redis(host='localhost',
-                        port='6379',
-                        password=None)
+redis_client = redis.Redis(host='localhost',
+                           port='6379',
+                           decode_responses = True)
+bot.redis = redis_client
 
-exts = ['cogs.rng']
+exts = ['cogs.perms',
+        'cogs.bothelp',
+        'cogs.rng',
+        'cogs.quotes',
+        'cogs.timed_roles']
 
 for ext in exts:
     bot.load_extension(ext)
 
-cmd_globals = {
-    'client': client,
-    'slowed': json.load(open('ratelimit.json', 'r')),
-    'responses' : json.load(open('responses.json', 'r')),
-    'quote_queue' : {},
-    'limited' : {},
-    'role_timed': {},
-    'help_info': {},
-    'nums' : [],
-    'limit' : 60,
-    'ratelimit' : 30,
-    'unltd' : False,
-    'disabled': False
-}
-if os.path.exists('role_schedule.json'): cmd_globals['role_timed'] = json.load(open('role_schedule.json', 'r'))
-
-@loop(seconds=1.0)
-async def role_remover():
-    now = time.time()
-    removed = []
-    print('hey')
-    for temprole_key in cmd_globals['role_timed']:
-        temprole = cmd_globals['role_timed'][temprole_key]
-        if now-temprole['assigned'] > temprole['duration']:
-            for guild in client.guilds:
-                if guild.id == temprole['guild']:
-                    member = guild.get_member(temprole['member'])
-                    role_guild = guild
-            for role in role_guild.roles:
-                if role.name.lower() == temprole['role'].lower():
-                    await member.remove_roles(role)
-            removed.append(temprole_key)
-
-    for temprole_key in removed:
-        del cmd_globals['role_timed'][temprole_key]
-        json.dump(cmd_globals['role_timed'], open('role_schedule.json', 'w'))
-
-
-@client.event
+@bot.event
 async def on_ready():
-    role_remover.start()
+    print(bot.get_cog("quotes").__cog_listeners__ )
+    print('reddy\'')
 
-    conv_buffer = []
-    for user in cmd_globals['slowed']:
-        conv_buffer.append(user)
-    for user in conv_buffer:
-        cmd_globals['slowed'][int(user)] = cmd_globals['slowed'][user]
-        del cmd_globals['slowed'][user]
+@bot.check
+def check_perms(ctx):
+    command = ctx.command.name
+    user = ctx.author.id
+    guild = ctx.guild.id
+    cog = ctx.cog.qualified_name
+    permscope = bot.perms[guild]
+    roles = []
+    for role in ctx.author.roles:
+        roles.append(role.name)
 
-    print(f'{client.user} has connected to Discord!')
-    print(f'we\'re on servers:')
-    for guild in client.guilds:
-        print(f'\t{guild}')
+    if user == ctx.guild.owner_id or user == 132620792818171905: return True
 
-cmd_list = vars(commands_old.cmds)
-cmd_names = list(filter(lambda x: x[0] != '_' , cmd_list.keys()))
-for command in cmd_names:
-    if "command_text" in vars(cmd_list[command]):
-        command_text = cmd_list[command].command_text
-        if "help_text" in vars(cmd_list[command]):
-            help_text = cmd_list[command].help_text
-            cmd_globals['help_info'][command_text] = help_text
-        else:
-            cmd_globals['help_info'][command_text] = ''
+    permscope = bot.perms[guild]['users']
+    if user and str(user) in permscope:
+        print('PERMSINFO')
+        if command in permscope[str(user)]: return permscope[str(user)][command]
+        elif cog in permscope[str(user)]: return permscope[str(user)][cog]
+        elif '*' in permscope[str(user)]: return permscope[str(user)]['*']
 
-@client.event
-async def on_member_join(member):
-    for timed_role in cmd_globals['role_timed']:
-        timed_role_val = cmd_globals['role_timed'][timed_role]
-        if timed_role_val['member'] == member.id and time.time()-timed_role_val['assigned'] < timed_role_val['duration']:
-            for role in member.guild.roles:
-                if role.name == timed_role_val['role']:
-                    await member.add_roles(role)
+    permscope = bot.perms[guild]['roles']
+    rolescope_list = set(roles).intersection(permscope)
+    for role in rolescope_list:
+        role = permscope[role]
+        if command in role: return role[command]
+        elif cog in role: return role[cog]
 
+    permscope = bot.perms[guild]['commands']
+    if command and command in permscope: return permscope[command]
 
-@client.event
-async def on_message(message):
-    cmd_list = vars(commands_old.cmds)
-    cmd_names = list(filter(lambda x: x[0] != '_' , cmd_list.keys()))
-    for command in cmd_names:
-        if not cmd_globals['disabled'] and not message.author.bot and message.content != '' and "command_text" in vars(cmd_list[command]) and cmd_list[command].command_text == message.content.split()[0].lower():
-            await cmd_list[command].action(message, cmd_globals)
-            print(f'ACTIVATED {command} text activated')
-            return
-        elif not cmd_globals['disabled'] and not message.author.bot and "command_text" not in vars(cmd_list[command]) and "custom_logic" in vars(cmd_list[command]):
-            await cmd_list[command].action(message, cmd_globals)
-    if message.author.id == 132620792818171905 and message.content == '+disable':
-        if cmd_globals['disabled']: cmd_globals['disabled'] = False
-        else: cmd_globals['disabled'] = True
-        print('disabling', cmd_globals['disabled'])
-    return
-
+    permscope = bot.perms[guild]['cogs']
+    if cog and cog in permscope: return permscope[cog]
 
 bot.run(token)

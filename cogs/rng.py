@@ -5,11 +5,13 @@ import glob
 import json
 import os
 from discord.ext import commands
+from random import seed, randint
 
 class rng(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.redis = bot.redis
+        seed(time.time())
 
     # sends random tarot card
     @commands.command()
@@ -26,9 +28,9 @@ class rng(commands.Cog):
         print(rand, int(rand))
 
     # bbq
-    @bot.listen('on_message')
-    async def bbq(self, ctx):
-        if context.message.content[0:2].lower() == 'bbq':
+    @commands.Cog.listener('on_message')
+    async def bbq(self, message):
+        if message.content[0:3].lower() == 'bbq':
             bbq=['No.', 'Mote it be.', 'Never.', 'Yes.', 'I will it.', 'Absolutely not.', 'Yes, of course.', 'No', 'That will never happen.']
             await message.channel.send(bbq[randint(0,len(bbq)-1)])
 
