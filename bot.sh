@@ -1,9 +1,5 @@
 #!/usr/bin/env bash
 
-if [[ $1 == "" ]]; then
-   tmux new-session -d -s yubot "python bot.py"
-fi
-
 if [[ $1 == "t" ]]; then
    python bot.py
 fi

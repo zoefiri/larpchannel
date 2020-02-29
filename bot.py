@@ -1,5 +1,4 @@
 import discord
-import commands_old
 import signal
 import redis
 import time

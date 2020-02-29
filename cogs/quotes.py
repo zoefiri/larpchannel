@@ -34,6 +34,7 @@ class quotes(commands.Cog):
                 await ctx.send('Cancelled!')
                 del self.quote_queue[message.author.id]
             else:
+                print('ADDING QUOTE', self.quote_queue[message.author.id], message.content)
                 self.redis.hset('responses', self.quote_queue[message.author.id], message.content)
                 del self.quote_queue[message.author.id]
 

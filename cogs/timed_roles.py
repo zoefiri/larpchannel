@@ -4,7 +4,6 @@ import time
 import json
 import sys
 import os
-import arg_parse_common as parse
 from recordtype import recordtype
 from discord.ext import commands
 from discord.ext.tasks import loop
