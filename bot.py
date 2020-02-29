@@ -18,6 +18,7 @@ bot.redis = redis_client
 
 exts = ['cogs.perms',
         'cogs.bothelp',
+        'cogs.invis',
         'cogs.rng',
         'cogs.quotes',
         'cogs.timed_roles']
