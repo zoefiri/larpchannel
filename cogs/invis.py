@@ -31,7 +31,7 @@ class invisibility(commands.Cog):
         else:
             self.invis[ctx.guild.id][user_id] = {'time':int(arg), 'mod': False}
             json.dump(self.invis, open('persist/invis.json', 'w'))
-            await ctx.send(f'your invisibility period is now set to {int(arg)}! *stay safe.*')
+            await ctx.send(f'your invisibility period is now set to {int(arg)}! *stay safe.*', delete_after=15)
 
     # make a user visible
     @commands.command()
@@ -58,7 +58,7 @@ class invisibility(commands.Cog):
         else:
             self.invis[ctx.guild.id][user_id] = {'time':int(args[1]), 'mod': False}
             json.dump(self.invis, open('persist/invis.json', 'w'))
-            await ctx.send(f'{ctx.message.mentions[0].name}\'s invisibility period is now set to {int(args[1])}')
+            await ctx.send(f'{ctx.message.mentions[0].name}\'s invisibility period is now set to {int(args[1])}', delete_after=15)
 
     # make a user visible (mod)
     @commands.command()
