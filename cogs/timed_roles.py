@@ -201,6 +201,9 @@ class timed_roles(commands.Cog):
                     for role in removal_guild.roles:
                         if role.name == role_expiring['role']: removal_role = role
                     member = removal_guild.get_member(role_expiring['member'])
+                    if not member:
+                        removing = True
+                        break
                     if removal_role:
                         await member.remove_roles(removal_role)
                     removing = True
