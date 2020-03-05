@@ -14,7 +14,7 @@ if os.path.isfile('persist/token.json'):
 else:
     print('rlease put bot token into persist/token.json')
     json.dump({'token':''}, open('persist/token.json', 'w'))
-    exit()
+    exit(1)
 
 client = discord.Client()
 bot = commands.Bot(command_prefix='+')
