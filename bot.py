@@ -8,7 +8,13 @@ import os
 from discord.ext import commands
 from discord.ext.tasks import loop
 
-token = 'NjY2Mjg5ODE1ODE3Mjg5NzM4.XjRKug.hLMDddmi9mDv4wzmmE55Em4hFaw'
+if os.path.isfile('persist/token.json'):
+    token = json.load(open('persist/token.json', 'r'))
+else:
+    print('rlease put bot token into persist/token.json')
+    json.dump({}, open('persist/token.json', 'w'))
+    return 1
+
 client = discord.Client()
 bot = commands.Bot(command_prefix='+')
 redis_client = redis.Redis(host='localhost',
