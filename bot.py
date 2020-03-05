@@ -8,12 +8,13 @@ import os
 from discord.ext import commands
 from discord.ext.tasks import loop
 
+token = ''
 if os.path.isfile('persist/token.json'):
-    token = json.load(open('persist/token.json', 'r'))
+    token = json.load(open('persist/token.json', 'r'))['token']
 else:
     print('rlease put bot token into persist/token.json')
-    json.dump({}, open('persist/token.json', 'w'))
-    return 1
+    json.dump({'token':''}, open('persist/token.json', 'w'))
+    exit()
 
 client = discord.Client()
 bot = commands.Bot(command_prefix='+')
