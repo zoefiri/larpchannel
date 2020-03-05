@@ -4,6 +4,7 @@ import time
 import json
 import sys
 import os
+from parse import parse
 from recordtype import recordtype
 from discord.ext import commands
 from discord.ext.tasks import loop
@@ -53,58 +54,39 @@ class timed_roles(commands.Cog):
         message = ctx.message
         now = time.time()
         member = False
-        member_index = 0
         time_abbrev = {'s': 1, 'second': 1, 'seconds': 1, 'sec': 1, 'secs': 1,
                        'm': 60, 'min': 60, 'mins': 60, 'minute': 60, 'minutes': 60,
                        'h': 3600, 'hr': 3600, 'hrs': 3600, 'hour': 3600, 'hours': 3600,
                        'd': 86400, 'day': 86400, 'days': 86400}
-        # Check perms
-        for role in ctx.author.roles:
-            timed_role = False
-            if role.name == 'Mods' or role.name == 'Admins' or message.author.id == 132620792818171905:
-                if len(message.mentions) != 1:
-                    await ctx.send(self.mention_err+help_msg)
 
-                # acquire role and user
-                for i in range(0,len(args)):
-                    if args[i][0:2] == '<@':
-                        role_candidate = ' '.join(args[0:i]).lower()
-                        member_index = i
-                        break
-                for role in ctx.guild.roles:
-                    if role.name.lower() == role_candidate: timed_role = role
-                member = message.mentions[0]
+        parsed = parse(ctx, self.bot, args, ['role', 'user', 'int', time_abbrev])
+        print('parsed', parsed)
+        if parsed.error:
+            await ctx.send(parsed.error)
+            return
+        try:
+            role_duration = parsed.num * time_abbrev[parsed.orchecks]
+        except (KeyError, ValueError, IndexError):
+            await message.channel.send(self.time_err+help_msg)
+            return
 
-                # check if user and role exist, and if time has been entered properly.
-                if not timed_role:
-                    await ctx.send(self.no_role_err+help_msg)
-                    return
-                if not member:
-                    await ctx.send(self.no_user_err+help_msg)
-                    return
-                try:
-                    role_duration = int(args[member_index+1]) * time_abbrev[args[member_index+2]]
-                except (KeyError, ValueError, IndexError):
-                    await message.channel.send(self.time_err+help_msg)
-                    return
+        # add role to the schedule
+        await parsed.user.add_roles(parsed.role)
+        new_role_detail = {'member': parsed.user.id, 'role': parsed.role.name, 'assigned': now,
+                           'duration': role_duration, 'guild': ctx.guild.id}
+        self.role_schedule_lock.acquire()
+        try:
+            while now+role_duration in self.role_schedule:
+                role_duration += .0001
 
-                # add role to the schedule
-                await member.add_roles(timed_role)
-                new_role_detail = {'member': member.id, 'role': timed_role.name, 'assigned': now,
-                                   'duration': role_duration, 'guild': message.guild.id}
-                self.role_schedule_lock.acquire()
-                try:
-                    while now+role_duration in self.role_schedule:
-                        role_duration += .0001
+            self.role_schedule[now+role_duration] = new_role_detail
+            json.dump(self.role_schedule, open('persist/role_schedule.json', 'w'))
+        finally:
+            self.role_schedule_lock.release()
 
-                    self.role_schedule[now+role_duration] = new_role_detail
-                    json.dump(self.role_schedule, open('persist/role_schedule.json', 'w'))
-                finally:
-                    self.role_schedule_lock.release()
-
-                await message.channel.send(f'user **{member.name}** given role **{timed_role.name}** for '+
-                                           f'**{args[member_index+1]+" "+args[member_index+2]}** (**{role_duration}** seconds)')
-                return
+        await message.channel.send(f'user **{parsed.user.name}** given role **{parsed.role.name}** for '+
+                                   f'**{str(parsed.num)+" "+parsed.orchecks}** (**{role_duration}** seconds)')
+        return
 
     # timed roles list
     @commands.command()
