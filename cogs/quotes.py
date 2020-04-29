@@ -1,7 +1,4 @@
-import discord
 import time
-import json
-import os
 from discord.ext import commands
 
 class quotes(commands.Cog):
@@ -31,7 +28,7 @@ class quotes(commands.Cog):
     async def quote_receptor_adder(self, message):
         if len(self.quote_queue) != 0 and message.author.id in self.quote_queue:
             if message.content == 'CANCEL':
-                await ctx.send('Cancelled!')
+                await message.channel.send('Cancelled!')
                 del self.quote_queue[message.author.id]
             else:
                 print('ADDING QUOTE', self.quote_queue[message.author.id], message.content)
