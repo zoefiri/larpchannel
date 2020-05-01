@@ -54,25 +54,21 @@ class raidmode(commands.Cog):
             now = time.time()
             self.raidmode[ctx.guild.id]["raid"] = True
             joins = self.joins
-            removed = 0
+            purged = 0
             for join in joins:
-                roles = []
-                for role in joins[join].roles:
-                    roles.append(role.id)
-                if now-join < time_limit and self.raidmode[ctx.guild.id]["role"] in roles:
-                    print('REMOVING FROM: ' + joins[join].name)
+                if now-join < time_limit:
+                    print('PURGING USER: ' + joins[join].name)
                     try:
-                        removal_role = ctx.guild.get_role(role.id)
-                        await joins[join].remove_roles(removal_role)
+                        add_role = ctx.guild.get_role(self.raidmode[ctx.guild.id]["role"])
+                        await joins[join].add_roles(add_role)
                     except Exception: pass
-                    finally: removed += 1
+                    finally: purged += 1
             json.dump(self.raidmode, open('persist/raidmode.json', 'w'))
-            await ctx.send(f'raidmode enabled! **{removed}** users from the last hour have been sent to the verif channel.'+
+            await ctx.send(f'raidmode enabled! **{purged}** users from the last hour have been sent to the verif channel.'+
                            'Verification is now required until raidmode is toggled back off.')
         elif ctx.guild.id in self.raidmode and time_limit > self.raidmode[ctx.guild.id]["time_limit"]:
             await ctx.send('sorry but at the moment joins on this server are only logged up to'+
                            f'**{self.raidmode[ctx.guild.id]["time_limit"]}** {time_limit} ago')
-
         else:
             ctx.send('Raidmode has not been setup for this server, please use +setup_raidmode')
 
@@ -85,6 +81,27 @@ class raidmode(commands.Cog):
             await ctx.send('raidmode disabled!')
         elif ctx.guild.id not in self.raidmode or not self.raidmode[ctx.guild.id]["raid"]:
             await ctx.send('raidmode is not enabled!')
+
+    @commands.command()
+    async def verif(self, ctx, member: discord.Member):
+        roles = []
+        for role in member.roles:
+            roles.append(role.id)
+        if not self.raidmode[member.guild.id]["role"] in roles:
+            await ctx.send('user is already verified!')
+            return
+        else:
+            joins_scope = self.raidmode[member.guild.id]["join_ids"]
+            role = member.guild.get_role(self.raidmode[member.guild.id]["role"])
+            await member.remove_roles(role)
+            join_times = []
+            for join_time in joins_scope:
+                if member.id == joins_scope[join_time]:
+                    join_times.append(joins_scope[join_time])
+            for join_time in join_times:
+                del self.raidmode[member.guild.id]["join_ids"][join_time]
+            json.dump(self.raidmode, open('persist/raidmode.json', 'w'))
+            ctx.send('verified!')
 
     # monitors joins to strip verif roles of recent joins if a raid occurs
     @commands.Cog.listener('on_member_join')
@@ -104,10 +121,9 @@ class raidmode(commands.Cog):
                 del self.raidmode[member.guild.id]["join_ids"][join]
             json.dump(self.raidmode, open('persist/raidmode.json', 'w'))
 
-            if not guildscope["raid"]:
+            if guildscope["raid"]:
                 role = member.guild.get_role(self.raidmode[member.guild.id]["role"])
                 await member.add_roles(role)
-            else:
                 dm = await member.create_dm()
                 await dm.send(f'Sorry! Right now we think a raid might be going on in **{member.guild.name}** so you will have to be verified.')
 
