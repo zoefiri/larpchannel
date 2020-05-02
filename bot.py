@@ -12,7 +12,7 @@ token = ''
 if os.path.isfile('persist/token.json'):
     token = json.load(open('persist/token.json', 'r'))['token']
 else:
-    print('rlease put bot token into persist/token.json')
+    print('please put bot token into persist/token.json')
     json.dump({'token':''}, open('persist/token.json', 'w'))
     exit(1)
 
@@ -23,19 +23,22 @@ redis_client = redis.Redis(host='localhost',
                            decode_responses = True)
 bot.redis = redis_client
 
-exts = ['cogs.perms',
-        'cogs.bothelp',
-        'cogs.rng',
-        'cogs.quotes',
-        'cogs.timed_roles']
+exts = ['cogs.raidmode','cogs.perms', 'cogs.quotes']
 
 for ext in exts:
     bot.load_extension(ext)
 
 @bot.event
 async def on_ready():
-    print(bot.get_cog("quotes").__cog_listeners__ )
-    print('reddy\'')
+    guild = bot.get_guild(618965200573431818)
+    role = guild.get_role(705501286006784073)
+    for member in guild.members:
+        roles = []
+        for newrole in member.roles:
+            roles.append(newrole.name)
+        if 'raid-jailed' in roles:
+            print(roles)
+            print(member.name)
 
 @bot.check
 def check_perms(ctx):
